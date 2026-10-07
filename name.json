@@ -1,0 +1,25 @@
+{
+  "name": "lua-obfuscator",
+  "version": "1.0.0",
+  "description": "在线 Lua 代码混淆工具 (Online Lua Obfuscator)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "lua",
+    "obfuscator",
+    "obfuscate",
+    "minify",
+    "code-protection"
+  ],
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "MIT"
+}
