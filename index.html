@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lua Obfuscator — 在线 Lua 代码混淆</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">λ</span>
+    <h1>Lua Obfuscator</h1>
+  </div>
+  <div class="actions">
+    <button id="btnSample" class="btn ghost">示例</button>
+    <button id="btnClear" class="btn ghost">清空</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>输入</h2>
+      <label class="file-btn">
+        选择 .lua 文件
+        <input type="file" id="fileInput" accept=".lua,.txt,text/plain" hidden />
+      </label>
+    </div>
+    <textarea id="input" spellcheck="false" placeholder="-- 在这里粘贴 Lua 代码，或把文件拖进来"></textarea>
+    <div class="panel-foot">
+      <span id="inputStat" class="stat">0 字符</span>
+    </div>
+  </section>
+
+  <section class="panel options">
+    <div class="panel-head"><h2>选项</h2></div>
+    <div class="opt-list">
+      <label class="switch"><input type="checkbox" id="optMinify" checked /><span>压缩代码（移除注释与空白）</span></label>
+      <label class="switch"><input type="checkbox" id="optStrings" checked /><span>加密字符串</span></label>
+      <label class="switch"><input type="checkbox" id="optNumbers" checked /><span>数字混淆</span></label>
+      <label class="field"><span>水印 / 注释</span><input type="text" id="optWatermark" placeholder="例如 © yourname" /></label>
+    </div>
+    <button id="btnRun" class="btn primary">混淆 →</button>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>输出</h2>
+      <div class="mini-actions">
+        <button id="btnCopy" class="btn ghost small">复制</button>
+        <button id="btnDownload" class="btn ghost small">下载</button>
+      </div>
+    </div>
+    <textarea id="output" spellcheck="false" readonly placeholder="结果会显示在这里"></textarea>
+    <div class="panel-foot">
+      <span id="outputStat" class="stat">0 字符</span>
+      <span id="msg" class="msg"></span>
+    </div>
+  </section>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
