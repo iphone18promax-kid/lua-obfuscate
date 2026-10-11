@@ -2,10 +2,6 @@
 
 const DEFAULT_WATERMARK = 'the obf by @https://iphone18promax-kid.github.io/lua-obfuscate';
 
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -13,7 +9,7 @@ function randInt(min, max) {
 function makeRandomId(prefix = 'v') {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
   let out = prefix;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 8; i++) {
     out += chars[randInt(0, chars.length - 1)];
   }
   return out;
@@ -25,12 +21,7 @@ function escapeLuaString(value) {
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r')
     .replace(/\t/g, '\\t')
-    .replace(/"/g, '\\"')
-    .replace(/'/g, "\\'");
-}
-
-function toHex(str) {
-  return Array.from(str).map(ch => ch.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+    .replace(/"/g, '\\"');
 }
 
 function safeStringLiteral(value) {
@@ -39,19 +30,14 @@ function safeStringLiteral(value) {
 }
 
 function insertWatermark(code, watermark = DEFAULT_WATERMARK) {
-  const prefix = `-- ${watermark}\n`;
-  return prefix + code;
+  return `-- ${watermark}\n${code}`;
 }
 
-function simpleMinifyLua(code) {
+function compressMinify(code) {
   return code
-    .replace(/\s*--.*$/gm, '')
+    .replace(/\s*--[^\n]*\n/g, '\n')
     .replace(/\s+/g, ' ')
     .replace(/\s*([{}\[\](),;:=+\-*/%^<>])\s*/g, '$1')
-    .replace(/\s+\./g, '.')
-    .replace(/\.\s+/g, '.')
-    .replace(/\s+\|\|\s+/g, ' || ')
-    .replace(/\s+&&\s+/g, ' && ')
     .trim();
 }
 
@@ -65,17 +51,7 @@ function obfuscateStringChunk(str, key) {
 }
 
 function buildDecoder(name, key) {
-  return [
-    `local function ${name}(s)`,
-    `  local out = {}`,
-    `  local k = ${key}`,
-    `  for i = 1, #s do`,
-    `    local b = string.byte(s, i)`,
-    `    table.insert(out, string.char((b - k) % 256))`,
-    `  end`,
-    `  return table.concat(out)`,
-    `end`,
-  ].join('\n');
+  return `local function ${name}(s) local t={} for i=1,#s do table.insert(t,string.char((string.byte(s,i)-${key})%256)) end return table.concat(t) end`;
 }
 
 function obfuscateNumbers(code) {
@@ -89,54 +65,36 @@ function obfuscateNumbers(code) {
 }
 
 function generateAntiTamper(code) {
-  const sig = toHex(code).slice(0, 32);
-  const seed = Math.floor(Math.random() * 1000000);
-  const guard = `-- anti_tamper:${seed}:${sig}\n`;
-  return guard + code;
+  const seed = randInt(100000, 999999);
+  return `-- anti_tamper:${seed}\n${code}`;
 }
 
-function layerObfuscation(code, depth = 1) {
-  let out = code;
-  for (let i = 0; i < depth; i++) {
-    const key = randInt(7, 255);
-    const decoderName = makeRandomId('d');
-    const token = makeRandomId('t');
-    const enc = obfuscateStringChunk(out, key);
-    out = [
-      buildDecoder(decoderName, key),
-      `local ${token} = ${safeStringLiteral(enc)}`,
-      `local _ = ${decoderName}(${token})`,
-      `print(_)`,
-      'local __ = _',
-      out,
-    ].join('\n');
-    out = obfuscateNumbers(out);
-    out = simpleMinifyLua(out);
-  }
-  return out;
+function layerObfuscation(code) {
+  const key = randInt(7, 255);
+  const decoderName = makeRandomId('d');
+  const token = makeRandomId('t');
+  const enc = obfuscateStringChunk(code, key);
+  
+  const wrapped = [
+    buildDecoder(decoderName, key),
+    `local ${token}=${safeStringLiteral(enc)}`,
+    `local _=${decoderName}(${token})`,
+    code
+  ].join('\n');
+  
+  return obfuscateNumbers(wrapped);
 }
 
-function applyVMStage(code) {
+function applyLightVMShell(code) {
   const vmName = makeRandomId('vm');
-  const memName = makeRandomId('m');
-  const opName = makeRandomId('op');
-  const px = toHex(code);
-  const blocks = [];
-  for (let i = 0; i < px.length; i += 4) {
-    blocks.push('0x' + px.slice(i, i + 4));
-  }
-
+  const checkName = makeRandomId('chk');
+  
   return [
-    `local ${vmName} = {}`,
-    `local ${memName} = { ${blocks.join(', ')} }`,
-    `function ${opName}(x) return x end`,
-    `for i = 1, #${memName} do`,
-    `  local v = ${memName}[i]`,
-    `  ${vmName}[i] = ${opName}(v)`,
-    `end`,
-    `local _ = table.concat({${vmName}[1], ${vmName}[2], ${vmName}[3]})`,
-    `-- vm-stage`,
-    code,
+    `local ${vmName}={}`,
+    `function ${checkName}(x) return x end`,
+    `${vmName}.run=${checkName}`,
+    `${vmName}.run(function() ${code} end)`,
+    code
   ].join('\n');
 }
 
@@ -152,16 +110,16 @@ function obfuscateAll(source, options = {}) {
   let code = source;
   code = insertWatermark(code, watermark);
 
-  // 只保留 3 层混淆
-  for (let i = 0; i < 3; i++) {
-    code = layerObfuscation(code, 1);
-    code = generateAntiTamper(code);
-    code = applyVMStage(code);
-  }
+  // 第 1 层：字符串加密 + 反篡改
+  code = layerObfuscation(code);
+  code = generateAntiTamper(code);
 
-  if (options.minify !== false) {
-    code = simpleMinifyLua(code);
-  }
+  // 第 2 层：数字混淆 + 轻量 VM
+  code = obfuscateNumbers(code);
+  code = applyLightVMShell(code);
+
+  // 第 3 层：最终压缩
+  code = compressMinify(code);
 
   return code;
 }
