@@ -152,7 +152,8 @@ function obfuscateAll(source, options = {}) {
   let code = source;
   code = insertWatermark(code, watermark);
 
-  for (let i = 0; i < 5; i++) {
+  // 只保留 3 层混淆
+  for (let i = 0; i < 3; i++) {
     code = layerObfuscation(code, 1);
     code = generateAntiTamper(code);
     code = applyVMStage(code);
